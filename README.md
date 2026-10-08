@@ -1,14 +1,32 @@
-# Stellar Trade Contracts
+# Augora Contracts
 
-This repository contains the Soroban contracts for [Stellar Trade](https://github.com/Stellar-tradehub/stellar-trade), an open-source prediction-market prototype on Stellar. The contracts define how XLM enters a market pool, how positions can be reduced, and how resolved or cancelled markets account for payouts and refunds.
+![CI](https://github.com/Augora-Labs/augora-contracts/actions/workflows/ci.yml/badge.svg)
+![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)
+![Stellar](https://img.shields.io/badge/Stellar-Soroban-7D00FF?logo=stellar&logoColor=white)
 
+This repository contains the Soroban contracts for [Augora](https://github.com/Augora-Labs/augora), an open-source prediction-market prototype on Stellar. The contracts define how XLM enters a market pool, how positions can be reduced, and how resolved or cancelled markets account for payouts and refunds.
+
+## Table of Contents
+
+- [How it uses Stellar](#how-it-uses-stellar)
+- [Workspace map](#workspace-map)
+- [Market lifecycle](#market-lifecycle)
+- [Accounting and safety properties](#accounting-and-safety-properties)
+- [Prerequisites](#prerequisites)
+- [Build and test](#build-and-test)
+- [Deployment and secrets](#deployment-and-secrets)
+- [Security](#security)
+
+## How it uses Stellar
+
+These are the **Soroban** smart contracts for [Augora](https://github.com/Augora-Labs/augora), deploying to the **Stellar** network. Contract logic enforces pool accounting, proportional payouts, referral fees, and reward minting, and emits Stellar events consumed by indexers and the frontend.
 
 ## Workspace map
 
 | Crate | Responsibility |
 | --- | --- |
 | `prediction_market` | Market creation, Buy positions, position reductions, resolver actions, proportional claims, cancellation refunds, fee accounting, disputes, and governance. |
-| `stellar_trade_token` | Reward token with admin controls, authorized minters, pause controls, and an optional supply cap. Fresh deployments use name `Stellar Trade` and symbol `STRD`. |
+| `augora_token` | Reward token with admin controls, authorized minters, pause controls, and an optional supply cap. Fresh deployments use name `Augora` and symbol `AUGORA`. |
 | `referral_registry` | Referral registration, bounded referral chains, and referral-fee distribution. |
 | `leaderboard` | Participant points and win/loss records, score decay, and authorized reward minting. |
 | `cross_contract_invariants` | Integration tests for accounting and behavior across the market, referral, leaderboard, and token contracts. |
@@ -28,6 +46,14 @@ The [invariant matrix](INVARIANT_MATRIX.md) lists the key rules and the tests th
 
 The `issues/` directory contains historical security and correctness reports from prior review work. Read [`issues/README.md`](issues/README.md) for their context; these reports document known design risks and should not be read as proof that the contracts have been audited or that every issue remains current.
 
+## Prerequisites
+
+| Tool | Notes |
+| --- | --- |
+| **Rust 1.91.0** | pinned in `rust-toolchain.toml` |
+| **`wasm32v1-none` target** | `rustup target add wasm32v1-none` |
+| **Stellar CLI** | only for deployment |
+
 ## Build and test
 
 The workspace pins Rust 1.91.0 and the `wasm32v1-none` target in `rust-toolchain.toml`. Install the toolchain and target, then run from this repository's root:
@@ -39,11 +65,18 @@ cargo clippy --workspace --all-features -- -D warnings
 cargo build --release --target wasm32v1-none -p prediction_market
 ```
 
-The GitHub Actions workflow runs workspace checks, tests, WASM builds, and cross-contract invariant tests on changes to the default branch and pull requests. For local frontend development and deployment instructions, see the [application README](https://github.com/Stellar-tradehub/stellar-trade/blob/main/README.md).
+The GitHub Actions workflow runs workspace checks, tests, WASM builds, and cross-contract invariant tests on changes to the default branch and pull requests. For local frontend development and deployment instructions, see the [application README](https://github.com/Augora-Labs/augora/blob/main/README.md).
 
 ## Deployment and secrets
 
-The deployed Testnet contracts retain their historical IDs and token metadata. A fresh deployment creates new addresses and initializes STRD; it does not migrate existing holders or balances. Confirm network, contract IDs, admin identity, fee settings, and resolver configuration before any deployment. Never commit secret keys, wallet recovery phrases, `.deploy.env`, deployment output, or local identity files.
+The deployed Testnet contracts retain their historical IDs and token metadata. A fresh deployment creates new addresses and initializes AUGORA; it does not migrate existing holders or balances. Confirm network, contract IDs, admin identity, fee settings, and resolver configuration before any deployment. Never commit secret keys, wallet recovery phrases, `.deploy.env`, deployment output, or local identity files.
+
+## Security
+
+- **Never commit secrets** — keep keys, seed phrases, and `.env` files out of source control.
+- **Testnet values have no real-world value**; treat testnet deployments as experimental.
+- **Keys never leave the wallet** — signing is delegated to the user's Stellar wallet; the app does not store secret keys.
+- Report vulnerabilities per `SECURITY.md` where present rather than opening a public issue.
 
 ## License
 
