@@ -190,10 +190,11 @@ impl ReferralRegistryContract {
             // referral_depth(ref_addr) is the referrer's OWN depth in the
             // chain; the new user being registered would sit one level
             // deeper than that. Check what the user's depth would become,
-            // not the referrer's current depth, or a chain can grow one
-            // member past MAX_REFERRAL_DEPTH before ever being rejected.
+            // not the referrer's current depth. A chain exactly
+            // MAX_REFERRAL_DEPTH deep is allowed, so only reject when the
+            // user's depth would exceed it.
             let depth = Self::referral_depth(&env, ref_addr);
-            if depth + 1 >= MAX_REFERRAL_DEPTH {
+            if depth + 1 > MAX_REFERRAL_DEPTH {
                 return Err(ReferralError::DepthLimitExceeded);
             }
             let ref_key = DataKey::ReferrerCount(ref_addr.clone());
