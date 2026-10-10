@@ -1,50 +1,54 @@
 name: CI
-
 on:
   push:
-    branches: [main, master, "fix/**", "test/**"]
+    branches:
+    - main
+    - master
+    - fix/**
+    - test/**
   pull_request:
-    branches: [main, master]
-
+    branches:
+    - main
+    - master
 env:
   CARGO_TERM_COLOR: always
-  RUSTFLAGS: "-D warnings"
+  RUSTFLAGS: -D warnings
   SOROBAN_RPC_URL: https://soroban-testnet.stellar.org
   SOROBAN_NETWORK_PASSPHRASE: Test SDF Future Network ; October 2022
-
 jobs:
   check:
     name: Check & Clippy
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+    - uses: actions/checkout@v4
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: wasm32v1-none
+        components: clippy, rustfmt
+    - name: Cache cargo registry & build
+      uses: actions/cache@v4
+      with:
+        path: '~/.cargo/registry
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32v1-none
-          components: clippy, rustfmt
+          ~/.cargo/git
 
-      - name: Cache cargo registry & build
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: cargo-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: cargo-${{ runner.os }}-
+          target
 
-      - name: Cargo check
-        run: cargo check --workspace --all-features
-
-      - name: Clippy
-        run: cargo clippy --workspace --all-features --all-targets -- -D warnings
-
-      - name: Check formatting
-        run: cargo fmt --all -- --check
-
+          '
+        key: cargo-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: cargo-${{ runner.os }}-
+    - name: Cargo check
+      run: cargo check --workspace --all-features
+    - name: Clippy
+      run: cargo clippy --workspace --all-features --all-targets -- -D warnings
+    - name: Check formatting
+      run: cargo fmt --all -- --check
+    - name: Cargo check
+      run: cargo check --locked --workspace --all-features
+    - name: Clippy
+      run: cargo clippy --locked --workspace --all-features -- -D warnings
   test:
     name: Tests (${{ matrix.crate }})
     runs-on: ubuntu-latest
@@ -53,83 +57,95 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        crate: [prediction_market, stellar_trade_token, referral_registry, leaderboard, cross_contract_invariants]
+        crate:
+        - prediction_market
+        - stellar_trade_token
+        - referral_registry
+        - leaderboard
+        - cross_contract_invariants
     steps:
-      - uses: actions/checkout@v4
+    - uses: actions/checkout@v4
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: wasm32v1-none
+    - name: Cache cargo registry & build
+      uses: actions/cache@v4
+      with:
+        path: '~/.cargo/registry
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32v1-none
+          ~/.cargo/git
 
-      - name: Cache cargo registry & build
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: cargo-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: cargo-${{ runner.os }}-
+          target
 
-      - name: Run tests (${{ matrix.crate }})
-        run: cargo test -p ${{ matrix.crate }} --all-features
-
+          '
+        key: cargo-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: cargo-${{ runner.os }}-
+    - name: Run tests (${{ matrix.crate }})
+      run: cargo test -p ${{ matrix.crate }} --all-features
+    - name: Run tests
+      run: cargo test --locked --workspace --all-features
   test-aggregate:
     name: Tests (aggregate)
     runs-on: ubuntu-latest
     needs: test
     steps:
-      - name: All per-crate tests finished
-        run: echo "Per-crate results are reported separately; see the individual matrix legs."
-
+    - name: All per-crate tests finished
+      run: echo "Per-crate results are reported separately; see the individual matrix
+        legs."
   build-wasm:
     name: Build WASM
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: check
     steps:
-      - uses: actions/checkout@v4
+    - uses: actions/checkout@v4
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: wasm32v1-none
+    - name: Cache cargo registry & build
+      uses: actions/cache@v4
+      with:
+        path: '~/.cargo/registry
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32v1-none
+          ~/.cargo/git
 
-      - name: Cache cargo registry & build
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: cargo-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: cargo-${{ runner.os }}-
+          target
 
-      - name: Build WASM
-        run: |
-          for crate in prediction_market stellar_trade_token referral_registry leaderboard; do
-            cargo build --release --target wasm32v1-none -p "$crate"
-          done
-
-      - name: List WASM artifacts
-        run: find target/wasm32v1-none/release -name '*.wasm' -type f -exec ls -lh {} \;
-
+          '
+        key: cargo-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: cargo-${{ runner.os }}-
+    - name: Build WASM
+      run: "for crate in prediction_market stellar_trade_token referral_registry leaderboard;\
+        \ do\n  cargo build --release --target wasm32v1-none -p \"$crate\"\ndone\n"
+    - name: List WASM artifacts
+      run: find target/wasm32v1-none/release -name '*.wasm' -type f -exec ls -lh {}
+        \;
+    - name: Build WASM
+      run: cargo build --locked --release --target wasm32v1-none -p prediction_market
   invariants:
     name: Cross-Contract Invariants
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: check
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32v1-none
-          components: rust-src
-      - uses: Swatinem/rust-cache@v2
-      - name: Install Stellar CLI
-        run: |
-          curl -sSfL https://github.com/stellar/stellar-cli/releases/latest/download/stellar-cli-install.sh | sh
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
-      - name: Run invariant tests
-        run: cargo test -p cross_contract_invariants test_inv_ -- --nocapture
+    - uses: actions/checkout@v4
+    - uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: wasm32v1-none
+        components: rust-src
+    - uses: Swatinem/rust-cache@v2
+    - name: Install Stellar CLI
+      run: 'curl -sSfL https://github.com/stellar/stellar-cli/releases/latest/download/stellar-cli-install.sh
+        | sh
+
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+        '
+    - name: Run invariant tests
+      run: cargo test -p cross_contract_invariants test_inv_ -- --nocapture
+    - name: Run invariant tests
+      run: cargo test --locked -p cross_contract_invariants test_inv_ -- --nocapture
+    - name: Run referral_registry tests
+      run: cargo test --locked -p referral_registry -- --nocapture
