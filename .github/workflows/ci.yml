@@ -16,6 +16,7 @@ jobs:
   check:
     name: Check & Clippy
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
@@ -47,6 +48,7 @@ jobs:
   test:
     name: Tests (${{ matrix.crate }})
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs: check
     strategy:
       fail-fast: false
@@ -84,6 +86,7 @@ jobs:
   build-wasm:
     name: Build WASM
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: check
     steps:
       - uses: actions/checkout@v4
@@ -115,6 +118,7 @@ jobs:
   invariants:
     name: Cross-Contract Invariants
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs: check
     steps:
       - uses: actions/checkout@v4
