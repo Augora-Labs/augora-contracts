@@ -92,7 +92,13 @@ jobs:
           restore-keys: cargo-${{ runner.os }}-
 
       - name: Build WASM
-        run: cargo build --release --target wasm32v1-none -p prediction_market
+        run: |
+          for crate in prediction_market stellar_trade_token referral_registry leaderboard; do
+            cargo build --release --target wasm32v1-none -p "$crate"
+          done
+
+      - name: List WASM artifacts
+        run: find target/wasm32v1-none/release -name '*.wasm' -type f -exec ls -lh {} \;
 
   invariants:
     name: Cross-Contract Invariants
