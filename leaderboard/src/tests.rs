@@ -1975,3 +1975,44 @@ fn test_add_pts_still_rejects_a_non_market_caller_after_delegation() {
         Err(Ok(LeaderboardError::UnauthorizedCaller))
     );
 }
+
+#[test]
+fn test_queue_reward_and_bonus_reward_paths_bounty_42() {
+    let (env, client, _admin, market, referral, token_client) = setup_with_token();
+    let user = Address::generate(&env);
+    let supply_before = token_client.total_supply();
+
+    // Authorized market queues a normal reward.
+    client.queue_reward(&market, &user, &100, &10, &true);
+
+    let pending = client.get_pending_reward(&user).unwrap();
+    assert_eq!(pending.tokens, 10);
+
+    // Queueing must not mint anything before claim.
+    assert_eq!(token_client.total_supply(), supply_before);
+
+    // Authorized referral queues a bonus reward.
+    client.queue_bonus_reward(&referral, &user, &50, &5);
+
+    // Bonus queueing must also leave supply unchanged.
+    assert_eq!(token_client.total_supply(), supply_before);
+
+    // Neither an arbitrary caller nor the wrong role may queue rewards.
+    let stranger = Address::generate(&env);
+
+    let err = client
+        .try_queue_reward(&stranger, &user, &100, &10, &true)
+        .unwrap_err()
+        .unwrap();
+    assert_eq!(err, LeaderboardError::UnauthorizedCaller);
+
+    let err2 = client
+        .try_queue_bonus_reward(&stranger, &user, &50, &5)
+        .unwrap_err()
+        .unwrap();
+    assert_eq!(err2, LeaderboardError::UnauthorizedCaller);
+
+    // Minting happens only when pending rewards are claimed.
+    client.claim_pending_rewards(&user);
+    assert!(token_client.total_supply() > supply_before);
+}
