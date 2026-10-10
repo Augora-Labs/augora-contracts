@@ -36,10 +36,10 @@ jobs:
           restore-keys: cargo-${{ runner.os }}-
 
       - name: Cargo check
-        run: cargo check --workspace --all-features
+        run: cargo check --locked --workspace --all-features
 
       - name: Clippy
-        run: cargo clippy --workspace --all-features -- -D warnings
+        run: cargo clippy --locked --workspace --all-features -- -D warnings
 
       - name: Check formatting
         run: cargo fmt --all -- --check
@@ -67,7 +67,7 @@ jobs:
           restore-keys: cargo-${{ runner.os }}-
 
       - name: Run tests
-        run: cargo test --workspace --all-features
+        run: cargo test --locked --workspace --all-features
 
   build-wasm:
     name: Build WASM
@@ -92,7 +92,7 @@ jobs:
           restore-keys: cargo-${{ runner.os }}-
 
       - name: Build WASM
-        run: cargo build --release --target wasm32v1-none -p prediction_market
+        run: cargo build --locked --release --target wasm32v1-none -p prediction_market
 
   invariants:
     name: Cross-Contract Invariants
@@ -110,6 +110,6 @@ jobs:
           curl -sSfL https://github.com/stellar/stellar-cli/releases/latest/download/stellar-cli-install.sh | sh
           echo "$HOME/.local/bin" >> $GITHUB_PATH
       - name: Run invariant tests
-        run: cargo test -p cross_contract_invariants test_inv_ -- --nocapture
+        run: cargo test --locked -p cross_contract_invariants test_inv_ -- --nocapture
       - name: Run referral_registry tests
-        run: cargo test -p referral_registry -- --nocapture
+        run: cargo test --locked -p referral_registry -- --nocapture
