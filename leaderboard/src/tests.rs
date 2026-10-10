@@ -843,6 +843,74 @@ fn test_add_pts_emits_leaderboard_updated() {
     let topic0 = Val::try_from_val(&env, &body.topics[0]).unwrap();
     let name = Symbol::try_from_val(&env, &topic0).unwrap();
     assert_eq!(name, Symbol::new(&env, "leaderboard_updated"));
+
+    // Issue #102: the payload shape is now the unified 4-tuple
+    // (points, won_bets, lost_bets, bonus_bets) on every leaderboard_updated
+    // emission. add_pts went through credit_points (100 pts, is_winner=true):
+    // won_bets=1, lost_bets=0, bonus_bets=0.
+    use soroban_sdk::TryIntoVal;
+    let payload: soroban_sdk::Vec<Val> = body.data.try_into_val(&env).unwrap();
+    assert_eq!(payload.len(), 4);
+    // Field widths are part of the shape: points is u64, the counters are u32.
+    let points: u64 = payload.get(0).unwrap().try_into_val(&env).unwrap();
+    let won: u32 = payload.get(1).unwrap().try_into_val(&env).unwrap();
+    let lost: u32 = payload.get(2).unwrap().try_into_val(&env).unwrap();
+    let bonus: u32 = payload.get(3).unwrap().try_into_val(&env).unwrap();
+    assert_eq!(points, 100);
+    assert_eq!(won, 1);
+    assert_eq!(lost, 0);
+    assert_eq!(bonus, 0);
+}
+
+// Issue #102: add_bonus_pts (credit_bonus) must emit the same tuple arity and
+// field order as add_pts (credit_points) so an indexer can decode by topic
+// without heuristics.
+#[test]
+fn test_add_bonus_pts_payload_shape_matches_add_pts() {
+    // Path 1: add_pts (credit_points) in its own env
+    let (env_a, client_a, _admin, market_a, _referral) = setup();
+    let user_a = Address::generate(&env_a);
+    client_a.add_pts(&market_a, &user_a, &50_u64, &true);
+    let from_pts = decode_last_leaderboard_payload(&env_a);
+
+    // Path 2: add_bonus_pts (credit_bonus) in its own env
+    let (env_b, client_b, _admin, _market, referral) = setup();
+    let user_b = Address::generate(&env_b);
+    client_b.add_bonus_pts(&referral, &user_b, &25_u64);
+    let from_bonus = decode_last_leaderboard_payload(&env_b);
+
+    // Same arity, same field order, same field widths:
+    // (points: u64, won_bets: u32, lost_bets: u32, bonus_bets: u32)
+    use soroban_sdk::TryIntoVal;
+    assert_eq!(from_pts.len(), 4);
+    assert_eq!(from_bonus.len(), 4);
+
+    let decode_shape = |payload: &soroban_sdk::Vec<Val>, env: &Env| -> (u64, u32, u32, u32) {
+        let points: u64 = payload.get(0).unwrap().try_into_val(env).unwrap();
+        let won: u32 = payload.get(1).unwrap().try_into_val(env).unwrap();
+        let lost: u32 = payload.get(2).unwrap().try_into_val(env).unwrap();
+        let bonus: u32 = payload.get(3).unwrap().try_into_val(env).unwrap();
+        (points, won, lost, bonus)
+    };
+
+    // add_pts path: won=1 (is_winner), lost=0, bonus=0
+    let (pts, won, lost, bonus) = decode_shape(&from_pts, &env_a);
+    assert_eq!((pts, won, lost, bonus), (50, 1, 0, 0));
+
+    // bonus path: points=25, won/lost untouched, bonus_bets=1 distinguishes it
+    let (pts, won, lost, bonus) = decode_shape(&from_bonus, &env_b);
+    assert_eq!((pts, won, lost, bonus), (25, 0, 0, 1));
+}
+
+fn decode_last_leaderboard_payload(env: &Env) -> soroban_sdk::Vec<Val> {
+    use soroban_sdk::TryIntoVal;
+    let events = env.events().all();
+    let emitted = events.events();
+    let soroban_sdk::xdr::ContractEventBody::V0(body) = &emitted.last().unwrap().body;
+    let topic0 = Val::try_from_val(env, &body.topics[0]).unwrap();
+    let name = Symbol::try_from_val(env, &topic0).unwrap();
+    assert_eq!(name, Symbol::new(env, "leaderboard_updated"));
+    body.data.try_into_val(env).unwrap()
 }
 
 #[test]

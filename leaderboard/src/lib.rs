@@ -1072,7 +1072,7 @@ impl LeaderboardContract {
         env.storage().instance().extend_ttl(TTL_BUMP, TTL_HIGH);
         env.events().publish(
             (Symbol::new(env, "leaderboard_updated"), user.clone()),
-            (s.points, s.won_bets, s.lost_bets),
+            (s.points, s.won_bets, s.lost_bets, s.bonus_bets),
         );
     }
 
@@ -1085,7 +1085,7 @@ impl LeaderboardContract {
         env.storage().instance().extend_ttl(TTL_BUMP, TTL_HIGH);
         env.events().publish(
             (Symbol::new(env, "leaderboard_updated"), user.clone()),
-            (s.points, s.bonus_bets),
+            (s.points, s.won_bets, s.lost_bets, s.bonus_bets),
         );
     }
 
