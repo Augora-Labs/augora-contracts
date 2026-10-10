@@ -286,45 +286,39 @@ fn test_register_referral_rejects_self_referral() {
 #[test]
 fn test_referral_depth_limit() {
     let t = setup();
-    let max_depth = 5;
+    let max_depth = 5u32;
 
     let mut users: Vec<Address> = Vec::new(&t.env);
     for _ in 0..(max_depth + 2) {
         users.push_back(Address::generate(&t.env));
     }
 
+    // users[0] has no referrer, so it is the chain root at depth 0, and
+    // users[k] sits at depth == k.
     t.client.register_referral(
         &users.get(0).unwrap(),
         &String::from_str(&t.env, "U0"),
         &Option::<Address>::None,
     );
 
-    // referral_depth(ref_addr) counts hops from ref_addr back to the chain
-    // root: users[0] (no referrer) sits at depth 0, and each subsequent
-    // registration in this chain is one hop deeper, so users[k] sits at
-    // depth == k. register_referral rejects a new registration once its
-    // cited referrer's depth + 1 >= MAX_REFERRAL_DEPTH. At loop iteration i,
-    // the referrer is users[i-1], at depth i-1, so the check becomes
-    // i >= MAX_REFERRAL_DEPTH -- i.e. rejection first fires exactly at
-    // i == max_depth (the max_depth-th registration), not one hop later.
+    // A chain exactly MAX_REFERRAL_DEPTH deep must register: each user at
+    // depth i (1..=MAX_REFERRAL_DEPTH) cites the user at depth i - 1, so this
+    // pins the exact boundary instead of only proving that some limit exists.
     for i in 1..=max_depth {
-        let referrer = users.get((i - 1) as u32).unwrap();
-        let user = users.get(i as u32).unwrap();
-        if i == max_depth {
-            let result = t.client.try_register_referral(
-                &user,
-                &String::from_str(&t.env, "U"),
-                &Some(referrer.clone()),
-            );
-            assert!(result.is_err(), "should fail at depth limit");
-        } else {
-            t.client.register_referral(
-                &user,
-                &String::from_str(&t.env, "U"),
-                &Some(referrer.clone()),
-            );
-        }
+        t.client.register_referral(
+            &users.get(i).unwrap(),
+            &String::from_str(&t.env, "U"),
+            &Some(users.get(i - 1).unwrap()),
+        );
     }
+
+    // One hop past MAX_REFERRAL_DEPTH must be rejected with the exact error.
+    let result = t.client.try_register_referral(
+        &users.get(max_depth + 1).unwrap(),
+        &String::from_str(&t.env, "U"),
+        &Some(users.get(max_depth).unwrap()),
+    );
+    assert_eq!(result, Err(Ok(ReferralError::DepthLimitExceeded)));
 }
 
 #[test]
